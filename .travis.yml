@@ -23,7 +23,7 @@ before_install:
 install:
   - conda create -c conda-forge --yes -n test python=$TRAVIS_PYTHON_VERSION pip numpy scipy pytest pytest-mpl pytest-runner pyproj
   - source activate test
-  - pip install --user git@github.com:andrewgsavage/pint.git@split_quantity_only2
+  - pip install --user git+https://github.com/andrewgsavage/pint.git@split_quantity_only2
 
 script:
   # pyEQL
