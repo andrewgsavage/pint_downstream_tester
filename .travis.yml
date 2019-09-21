@@ -21,8 +21,8 @@ before_install:
   - export ENV_NAME=travis
 
 install:
-  - conda create -c mwcraig --yes -n py34 python=3.4 pip numpy scipy
-  - source activate py34
+  - conda create -c conda-forge --yes -n test python=$TRAVIS_PYTHON_VERSION pip numpy scipy pytest pytest-mpl pytest-runner pyproj
+  - source activate test
   - pip install --user git@github.com:andrewgsavage/pint.git@split_quantity_only2
 
 script:
