@@ -27,7 +27,7 @@ before_install:
 install:
   - conda create -c mwcraig --yes -n py34 python=3.4 pip numpy scipy
   - source activate py34
-  - pip install https://github.com/hgrecco/pint/archive/master.zip
+  - pip install --user git@github.com:andrewgsavage/pint.git@split_quantity_only2
 
 script:
   # pyEQL
