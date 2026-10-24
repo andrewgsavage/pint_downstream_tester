@@ -123,10 +123,14 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     junit.unlink(missing_ok=True)
     cmd += [*project.get("pytest_args", []), f"--junitxml={junit}"]
     print("+ pytest", " ".join(cmd), flush=True)
-    pytest = [str(py), "-m", "pytest", *cmd]
+    # -P keeps the checkout off sys.path, so tests import the installed release
+    # rather than the source tree (which lacks compiled extensions).
+    pytest = [str(py), "-P", "-m", "pytest", *cmd]
     if project.get("qt") and shutil.which("xvfb-run"):
         pytest = ["xvfb-run", "-a", *pytest]
-    code = subprocess.run(pytest, cwd=cwd).returncode
+    # Put the environment's scripts on PATH for tests that run the project's CLI.
+    env = {**os.environ, "PATH": f"{py.parent}{os.pathsep}{os.environ['PATH']}"}
+    code = subprocess.run(pytest, cwd=cwd, env=env).returncode
     return code, failed_tests(junit)
 
 
