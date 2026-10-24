@@ -1,0 +1,51 @@
+name: Downstream tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      pint_ref:
+        description: Pint git ref (branch, tag or SHA) to test
+        default: master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.list.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: list
+        run: echo "projects=$(python run_downstream.py --list-json)" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: list
+    name: ${{ matrix.project }} / pint ${{ matrix.pint }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.list.outputs.projects) }}
+        # "release" is the baseline: a failure only on "master" is a Pint regression.
+        pint: [master, release]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - run: >
+          python run_downstream.py "${{ matrix.project }}"
+          --pint "${{ matrix.pint }}"
+          --pint-ref "${{ inputs.pint_ref || 'master' }}"
