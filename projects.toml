@@ -12,6 +12,7 @@
 #   pytest_args  extra pytest arguments (optional)
 #   qt           true to install Qt's system libraries in CI and run under xvfb (optional)
 #   apt          extra Ubuntu packages to install in CI (optional)
+#   python       Python version to test with, if not the default 3.12 (optional; needs uv)
 #   skip         reason the project is not tested; it is listed in the run summary instead
 
 [[project]]
@@ -230,7 +231,9 @@ test_path = "autotest"
 [[project]]
 name = "climada_python"
 requirement = "climada==6.1.0"
-test_deps = ["pytest"]
+test_deps = ["gdal==3.8.4", "pytest"]
+# GDAL has no wheels; build its bindings against Ubuntu 24.04's libgdal 3.8.4.
+apt = ["libgdal-dev"]
 repo = "https://github.com/CLIMADA-project/climada_python"
 ref = "v6.1.0"
 test_path = "climada/util"
@@ -246,7 +249,9 @@ test_path = "tests"
 [[project]]
 name = "invest"
 requirement = "natcap.invest==3.20.2"
-test_deps = ["pytest", "virtualenv>=12.0.1", "pytest-subtests!=0.14.0", "wheel>=0.27.0", "pypiwin32; sys_platform == 'win32'", "setuptools>=8.0,!=60.7.0", "pyinstaller>=6.9.0", "setuptools_scm>=6.4.0", "requests", "coverage", "xlwt", "build", "rst2html5", "beautifulsoup4", "cython"]
+test_deps = ["gdal==3.8.4", "pytest", "virtualenv>=12.0.1", "pytest-subtests!=0.14.0", "wheel>=0.27.0", "pypiwin32; sys_platform == 'win32'", "setuptools>=8.0,!=60.7.0", "pyinstaller>=6.9.0", "setuptools_scm>=6.4.0", "requests", "coverage", "xlwt", "build", "rst2html5", "beautifulsoup4", "cython"]
+# GDAL has no wheels; build its bindings against Ubuntu 24.04's libgdal 3.8.4.
+apt = ["libgdal-dev"]
 repo = "https://github.com/natcap/invest"
 ref = "3.20.2"
 test_path = "tests"
@@ -289,7 +294,7 @@ test_path = "tests"
 [[project]]
 name = "thermosteam"
 requirement = "thermosteam[test,tests,testing]==0.22.5"
-test_deps = ["pytest", "pyyaml", "pytest-cov", "coveralls", "biosteam", "biorefineries>=2.15.17", "sympy", "pint>=0.9", "chemicals>=0.1.5", "colorpalette>=0.3.1", "matplotlib>=3.1.1", "numpy>=1.18.1", "xlrd==1.2.0", "openpyxl>=3.0.0", "free_properties>=0.2.5", "flexsolve==0.3.29", "numba>=0.46.0", "pyglet", "ipykernel"]
+test_deps = ["pytest"]
 repo = "https://github.com/BioSTEAMDevelopmentGroup/thermosteam"
 ref = "0.22.5"
 test_path = "tests"
@@ -357,11 +362,8 @@ test_path = "tests"
 
 [[project]]
 name = "aiida-common-workflows"
-requirement = "aiida-common-workflows[tests]==1.0.1"
-test_deps = ["pytest"]
+skip = "Requires Python < 3.10; Pint needs 3.12+."
 repo = "https://github.com/aiidateam/aiida-common-workflows"
-ref = "v1.0.1"
-test_path = "tests"
 
 [[project]]
 name = "cp2k-input-tools"
@@ -386,11 +388,8 @@ repo = "https://github.com/OpenFreeEnergy/openfe"
 
 [[project]]
 name = "wepy"
-requirement = "wepy[test,tests,testing]==1.0.7"
-test_deps = ["pytest"]
+skip = "Pins h5py 2.10, which has no wheels for Python 3.12."
 repo = "https://github.com/ADicksonLab/wepy"
-ref = "v1.0.7"
-test_path = "tests"
 
 [[project]]
 name = "readdy"
@@ -408,7 +407,7 @@ repo = "https://github.com/lamalab-org/chembench"
 [[project]]
 name = "cellpy"
 requirement = "cellpy==2.1.5.post10"
-test_deps = ["pytest", "tables", "black", "build", "coverage", "flake8", "ipykernel", "matplotlib", "nox", "lmfit", "pytest-benchmark", "pytest-timeout", "issue-flow>=0.4.2", "cellpy-connectors @ git+https://github.com/cellpy/cellpy-connectors.git"]
+test_deps = ["pytest"]
 repo = "https://github.com/jepegit/cellpy"
 ref = "v2.1.5.post10"
 test_path = "tests"
@@ -481,6 +480,7 @@ test_path = "test_handcalcs"
 
 [[project]]
 name = "ross"
+python = "3.13"
 requirement = "ross-rotordynamics==3.1.0"
 test_deps = ["pytest"]
 repo = "https://github.com/petrobras/ross"
@@ -560,12 +560,8 @@ test_path = "tests"
 
 [[project]]
 name = "NEMO"
-# No tagged release matches PyPI, so test the default branch.
-requirement = "nemopt @ git+https://github.com/bje-/NEMO@master"
-test_deps = ["pytest"]
+skip = "Depends on wxPython (via Gooey), which has no Linux wheels."
 repo = "https://github.com/bje-/NEMO"
-ref = "master"
-test_path = "tests"
 
 [[project]]
 name = "flexmeasures"
@@ -795,6 +791,7 @@ test_path = "src/stravalib/tests"
 name = "gopro-dashboard-overlay"
 requirement = "gopro-overlay[test]==0.133.0"
 test_deps = ["pytest"]
+apt = ["libcairo2-dev", "pkg-config"]
 repo = "https://github.com/time4tea/gopro-dashboard-overlay"
 ref = "v0.133.0"
 test_path = "tests"

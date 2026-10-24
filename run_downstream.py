@@ -23,6 +23,7 @@ import stat
 import subprocess
 import sys
 import tomllib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -59,32 +60,51 @@ def venv_python(env: Path) -> Path:
     return env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def make_env(env: Path) -> tuple[Path, list[str]]:
-    """Create a fresh environment; return its python and a pip-install command."""
+def make_env(env: Path, python: str | None = None) -> tuple[Path, list[str]]:
+    """Create a fresh environment; return its python and a pip-install command.
+
+    ``python`` picks another Python version for the environment; this needs uv.
+    """
     rmtree(env)
     if shutil.which("uv"):
-        run(["uv", "venv", "--python", sys.executable, str(env)])
+        run(["uv", "venv", "--python", python or sys.executable, str(env)])
         py = venv_python(env)
         return py, ["uv", "pip", "install", "--python", str(py)]
+    if python:
+        raise RuntimeError(f"uv is needed to create a Python {python} environment")
     run([sys.executable, "-m", "venv", str(env)])
     py = venv_python(env)
     run([str(py), "-m", "pip", "install", "-q", "--upgrade", "pip"])
     return py, [str(py), "-m", "pip", "install"]
 
 
-def test_project(project: dict, pint: str, pint_ref: str) -> int:
+def failed_tests(junit: Path) -> list[str]:
+    """Test IDs that failed or errored, from a pytest JUnit XML report."""
+    if not junit.exists():
+        return []
+    failed = []
+    for case in ET.parse(junit).iter("testcase"):
+        if case.find("failure") is not None or case.find("error") is not None:
+            failed.append(f"{case.get('classname')}::{case.get('name')}")
+    return sorted(failed)
+
+
+def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str]]:
+    """Install and test one project; return pytest's exit code and the failed tests."""
     name = project["name"]
     print(f"\n{'=' * 20} {name} (pint: {pint}) {'=' * 20}", flush=True)
     work = WORK / name
     work.mkdir(parents=True, exist_ok=True)
-    py, install = make_env(work / "env")
+    py, install = make_env(work / "env", project.get("python"))
 
     apt = project.get("apt", []) + (QT_APT if project.get("qt") else [])
     if apt and os.environ.get("CI") and shutil.which("apt-get"):
         run(["sudo", "apt-get", "update", "-q"])
         run(["sudo", "apt-get", "install", "-yq", *apt])
 
-    run([*install, project["requirement"], *project.get("test_deps", [])])
+    # Pint is optional for some projects, so always ask for it; the resolver picks
+    # the newest release the project allows.
+    run([*install, project["requirement"], *project.get("test_deps", []), "pint"])
     if pint == "master":
         run([*install, "--upgrade", f"pint @ git+{PINT_REPO}@{pint_ref}"])
     run([str(py), "-c", "import pint; print('pint', pint.__version__)"])
@@ -99,12 +119,15 @@ def test_project(project: dict, pint: str, pint_ref: str) -> int:
              project["repo"], str(src)])
         cmd, cwd = [project["test_path"]], src
 
-    cmd += project.get("pytest_args", [])
+    junit = work / "junit.xml"
+    junit.unlink(missing_ok=True)
+    cmd += [*project.get("pytest_args", []), f"--junitxml={junit}"]
     print("+ pytest", " ".join(cmd), flush=True)
     pytest = [str(py), "-m", "pytest", *cmd]
     if project.get("qt") and shutil.which("xvfb-run"):
         pytest = ["xvfb-run", "-a", *pytest]
-    return subprocess.run(pytest, cwd=cwd).returncode
+    code = subprocess.run(pytest, cwd=cwd).returncode
+    return code, failed_tests(junit)
 
 
 def main() -> int:
@@ -121,6 +144,9 @@ def main() -> int:
                         help="with --list-json, only names matching this regex")
     parser.add_argument("--results-dir", type=Path,
                         help="write a <project>-<pint>.json outcome file per project here")
+    parser.add_argument("--report-only", action="store_true",
+                        help="exit 0 when tests fail (setup failures still exit 1); "
+                             "for CI, where the summary compares failures across Pint versions")
     args = parser.parse_args()
 
     if args.list_json:
@@ -133,24 +159,31 @@ def main() -> int:
         parser.error(f"unknown project(s): {', '.join(sorted(unknown))}")
 
     results = {}
+    setup_failed = False
     for name in args.names or projects:
         if projects[name].get("skip") and not args.names:
             print(f"Skipping {name}: {projects[name]['skip']}")
             continue
+        failed = []
         try:
-            results[name] = test_project(projects[name], args.pint, args.pint_ref)
+            results[name], failed = test_project(projects[name], args.pint, args.pint_ref)
             outcome = "pass" if results[name] == 0 else "fail"
-        except subprocess.CalledProcessError as e:
+        except (subprocess.CalledProcessError, RuntimeError) as e:
             print(f"Setup failed for {name}: {e}", flush=True)
-            results[name] = e.returncode or 1
+            results[name] = getattr(e, "returncode", 1) or 1
             outcome = "error"
+            setup_failed = True
         if args.results_dir:
             args.results_dir.mkdir(parents=True, exist_ok=True)
             out = args.results_dir / f"{name}-{args.pint}.json"
-            out.write_text(json.dumps({"name": name, "pint": args.pint, "outcome": outcome}))
+            out.write_text(json.dumps({"name": name, "pint": args.pint,
+                                       "outcome": outcome, "exit_code": results[name],
+                                       "failed": failed}))
     print("\nSummary:")
     for name, code in results.items():
         print(f"  {'PASS' if code == 0 else 'FAIL'}  {name}")
+    if args.report_only:
+        return int(setup_failed)
     return int(any(results.values()))
 
 

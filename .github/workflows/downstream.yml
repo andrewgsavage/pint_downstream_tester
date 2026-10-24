@@ -57,6 +57,7 @@ jobs:
           --pint "${{ matrix.pint }}"
           --pint-ref "${{ inputs.pint_ref || 'master' }}"
           --results-dir results
+          --report-only
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -78,4 +79,6 @@ jobs:
           pattern: result-*
           path: results
           merge-multiple: true
-      - run: python summarize.py results >> "$GITHUB_STEP_SUMMARY"
+      # Fails the run when tests fail with Pint master but pass with the release.
+      - run: python summarize.py results | tee -a "$GITHUB_STEP_SUMMARY"
+        shell: bash
