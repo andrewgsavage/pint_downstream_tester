@@ -6,6 +6,7 @@ Usage:
     python run_downstream.py --pint release        # baseline: released Pint from PyPI
     python run_downstream.py --pint-ref some-branch
     python run_downstream.py --list-json           # project names, for the CI matrix
+    python run_downstream.py --list-json --filter 'pint-'  # only names matching a regex
 
 Each project gets its own virtual environment under ``.downstream/``.
 Uses ``uv`` when it is on PATH, otherwise ``venv`` + ``pip``.
@@ -16,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -26,6 +28,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 WORK = ROOT / ".downstream"
 PINT_REPO = "https://github.com/hgrecco/pint"
+# System libraries Qt needs to start under xvfb on Ubuntu.
+QT_APT = [
+    "xvfb", "libegl1", "libgl1", "libxkbcommon-x11-0", "libxcb-icccm4", "libxcb-image0",
+    "libxcb-keysyms1", "libxcb-randr0", "libxcb-render-util0", "libxcb-xinerama0",
+    "libxcb-xfixes0", "libxcb-shape0", "libxcb-cursor0", "libdbus-1-3",
+]
 
 
 def load_projects() -> dict[str, dict]:
@@ -71,6 +79,11 @@ def test_project(project: dict, pint: str, pint_ref: str) -> int:
     work.mkdir(parents=True, exist_ok=True)
     py, install = make_env(work / "env")
 
+    apt = project.get("apt", []) + (QT_APT if project.get("qt") else [])
+    if apt and os.environ.get("CI") and shutil.which("apt-get"):
+        run(["sudo", "apt-get", "update", "-q"])
+        run(["sudo", "apt-get", "install", "-yq", *apt])
+
     run([*install, project["requirement"], *project.get("test_deps", [])])
     if pint == "master":
         run([*install, "--upgrade", f"pint @ git+{PINT_REPO}@{pint_ref}"])
@@ -88,7 +101,10 @@ def test_project(project: dict, pint: str, pint_ref: str) -> int:
 
     cmd += project.get("pytest_args", [])
     print("+ pytest", " ".join(cmd), flush=True)
-    return subprocess.run([str(py), "-m", "pytest", *cmd], cwd=cwd).returncode
+    pytest = [str(py), "-m", "pytest", *cmd]
+    if project.get("qt") and shutil.which("xvfb-run"):
+        pytest = ["xvfb-run", "-a", *pytest]
+    return subprocess.run(pytest, cwd=cwd).returncode
 
 
 def main() -> int:
@@ -101,10 +117,15 @@ def main() -> int:
                         help="git ref of Pint to test when --pint=master")
     parser.add_argument("--list-json", action="store_true",
                         help="print project names as JSON and exit")
+    parser.add_argument("--filter", default="",
+                        help="with --list-json, only names matching this regex")
+    parser.add_argument("--results-dir", type=Path,
+                        help="write a <project>-<pint>.json outcome file per project here")
     args = parser.parse_args()
 
     if args.list_json:
-        print(json.dumps(list(projects)))
+        print(json.dumps([n for n, p in projects.items()
+                          if not p.get("skip") and re.search(args.filter, n)]))
         return 0
 
     unknown = set(args.names) - set(projects)
@@ -113,11 +134,20 @@ def main() -> int:
 
     results = {}
     for name in args.names or projects:
+        if projects[name].get("skip") and not args.names:
+            print(f"Skipping {name}: {projects[name]['skip']}")
+            continue
         try:
             results[name] = test_project(projects[name], args.pint, args.pint_ref)
+            outcome = "pass" if results[name] == 0 else "fail"
         except subprocess.CalledProcessError as e:
             print(f"Setup failed for {name}: {e}", flush=True)
             results[name] = e.returncode or 1
+            outcome = "error"
+        if args.results_dir:
+            args.results_dir.mkdir(parents=True, exist_ok=True)
+            out = args.results_dir / f"{name}-{args.pint}.json"
+            out.write_text(json.dumps({"name": name, "pint": args.pint, "outcome": outcome}))
     print("\nSummary:")
     for name, code in results.items():
         print(f"  {'PASS' if code == 0 else 'FAIL'}  {name}")
