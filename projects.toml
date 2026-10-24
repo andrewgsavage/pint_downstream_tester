@@ -1,0 +1,34 @@
+# Downstream projects tested against Pint.
+#
+# Each project is installed from PyPI at the pinned version, then Pint is
+# replaced with the version under test and the project's own test suite runs.
+#
+# Keys:
+#   requirement  pip requirement for the released package (pin it, so only Pint varies)
+#   test_deps    extra packages needed to run the tests
+#   pyargs       run `pytest --pyargs <pyargs>` (tests shipped inside the package)
+#   repo / ref   otherwise clone this repo at this tag to get the tests...
+#   test_path    ...and run pytest on this path inside the clone
+#   pytest_args  extra pytest arguments (optional)
+
+[[project]]
+name = "pint-xarray"
+requirement = "pint-xarray==0.6.1"
+test_deps = ["pytest", "dask", "scipy", "bottleneck"]
+pyargs = "pint_xarray"
+
+[[project]]
+name = "pint-pandas"
+requirement = "pint-pandas==0.8.0"
+# pandas 3.1's extension test base needs fixtures pint-pandas 0.8.0 doesn't provide.
+test_deps = ["pytest", "pytest-subtests", "pyarrow", "pandas~=3.0.0"]
+pyargs = "pint_pandas"
+
+[[project]]
+name = "pyEQL"
+requirement = "pyEQL==1.7.0"
+test_deps = ["pytest", "pytest-xdist", "pyyaml"]
+repo = "https://github.com/KingsburyLab/pyEQL"
+ref = "v1.7.0"
+test_path = "tests"
+pytest_args = ["-n", "auto"]
