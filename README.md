@@ -1,6 +1,6 @@
 # Pint Downstream Tester
 
-[![Downstream tests](https://github.com/hgrecco/pint_downstream_tester/actions/workflows/downstream.yml/badge.svg)](https://github.com/hgrecco/pint_downstream_tester/actions/workflows/downstream.yml)
+[![Downstream tests](https://github.com/andrewgsavage/pint_downstream_tester/actions/workflows/downstream.yml/badge.svg)](https://github.com/andrewgsavage/pint_downstream_tester/actions/workflows/downstream.yml)
 
 Runs the test suites of projects that depend on [Pint](https://github.com/hgrecco/pint)
 against Pint `master`, to catch backwards-incompatible changes before they are released.
