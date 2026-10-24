@@ -1,0 +1,85 @@
+name: downstream
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Nightly; off the hour because on-the-hour schedules are often delayed.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: Regex of project names to run (empty runs all)
+        default: ""
+      pint_repo:
+        description: GitHub repo to install pint master from
+        default: hgrecco/pint
+      pint_ref:
+        description: Branch or ref of that repo
+        default: master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PINT_REPO: ${{ inputs.pint_repo || 'hgrecco/pint' }}
+  PINT_REF: ${{ inputs.pint_ref || 'master' }}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.matrix.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: matrix
+        env:
+          FILTER: ${{ inputs.filter }}
+        run: echo "projects=$(python scripts/matrix.py)" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: matrix
+    name: ${{ matrix.project.name }} (pint ${{ matrix.pint }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.matrix.outputs.projects) }}
+        pint: [release, master]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.project.python }}
+      - name: Install and test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/run_project.py "${{ matrix.project.name }}" "${{ matrix.pint }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.project.name }}-${{ matrix.pint }}
+          path: results/
+          if-no-files-found: ignore
+
+  summary:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+          merge-multiple: true
+      - run: python scripts/summarize.py results >> "$GITHUB_STEP_SUMMARY"
