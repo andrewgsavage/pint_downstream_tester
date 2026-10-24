@@ -23,6 +23,8 @@ requirement = "pint-pandas==0.8.0"
 # pandas 3.1's extension test base needs fixtures pint-pandas 0.8.0 doesn't provide.
 test_deps = ["pytest", "pytest-subtests", "pyarrow", "pandas~=3.0.0"]
 pyargs = "pint_pandas"
+# Fails with released Pint 0.26.2 as well, so not a Pint regression.
+pytest_args = ["-k", "not test_rank_missing"]
 
 [[project]]
 name = "pyEQL"
