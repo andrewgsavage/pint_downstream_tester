@@ -44,7 +44,11 @@ def load_projects() -> dict[str, dict]:
 
 def run(cmd: list[str], **kwargs) -> None:
     print("+", " ".join(cmd), flush=True)
-    subprocess.run(cmd, check=True, **kwargs)
+    subprocess.run(cmd, check=True, env=project_env, **kwargs)
+
+
+# Environment for the project being tested: os.environ plus its `env` table.
+project_env = dict(os.environ)
 
 
 def rmtree(path: Path) -> None:
@@ -95,6 +99,8 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     print(f"\n{'=' * 20} {name} (pint: {pint}) {'=' * 20}", flush=True)
     work = WORK / name
     work.mkdir(parents=True, exist_ok=True)
+    global project_env
+    project_env = {**os.environ, **project.get("env", {})}
     py, install = make_env(work / "env", project.get("python"))
 
     apt = project.get("apt", []) + (QT_APT if project.get("qt") else [])
@@ -119,7 +125,9 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
              project["repo"], str(src)])
         cmd, cwd = [project["test_path"]], src
 
-    junit = work / "junit.xml"
+    # Some suites refuse to let tests write outside /dev/shm, so put the report there.
+    shm = Path("/dev/shm")
+    junit = (shm if shm.is_dir() else work) / f"downstream-{name}-junit.xml"
     junit.unlink(missing_ok=True)
     cmd += [*project.get("pytest_args", []), f"--junitxml={junit}"]
     print("+ pytest", " ".join(cmd), flush=True)
@@ -129,7 +137,7 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     if project.get("qt") and shutil.which("xvfb-run"):
         pytest = ["xvfb-run", "-a", *pytest]
     # Put the environment's scripts on PATH for tests that run the project's CLI.
-    env = {**os.environ, "PATH": f"{py.parent}{os.pathsep}{os.environ['PATH']}"}
+    env = {**project_env, "PATH": f"{py.parent}{os.pathsep}{project_env['PATH']}"}
     code = subprocess.run(pytest, cwd=cwd, env=env).returncode
     return code, failed_tests(junit)
 

@@ -12,6 +12,7 @@
 #   pytest_args  extra pytest arguments (optional)
 #   qt           true to install Qt's system libraries in CI and run under xvfb (optional)
 #   apt          extra Ubuntu packages to install in CI (optional)
+#   env          environment variables for installing and testing (optional)
 #   python       Python version to test with, if not the default 3.12 (optional; needs uv)
 #   skip         reason the project is not tested; it is listed in the run summary instead
 
@@ -108,7 +109,7 @@ test_path = "tests"
 name = "xclim"
 # Tests fetch sample data with pooch, so they need network access.
 requirement = "xclim==0.62.0"
-test_deps = ["pytest", "pooch"]
+test_deps = ["pytest", "pytest-xdist", "pooch"]
 repo = "https://github.com/Ouranosinc/xclim"
 ref = "v0.62.0"
 test_path = "tests"
@@ -203,7 +204,7 @@ test_path = "test"
 [[project]]
 name = "eradiate"
 requirement = "eradiate[kernel]==1.2.0"
-test_deps = ["pytest", "pytest-cov", "pytest-json-report", "asv==0.6.*", "robotframework", "pytest-robotframework", "skyfield-data"]
+test_deps = ["pytest", "seaborn", "pytest-cov", "pytest-json-report", "asv==0.6.*", "robotframework", "pytest-robotframework", "skyfield-data"]
 repo = "https://github.com/eradiate/eradiate"
 ref = "v1.2.0"
 test_path = "tests"
@@ -286,6 +287,8 @@ test_path = "tests"
 
 [[project]]
 name = "thermosteam"
+# A dependency still requires the deprecated `sklearn` placeholder package.
+env = { SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL = "True" }
 requirement = "thermosteam==0.22.5"
 test_deps = ["pytest"]
 repo = "https://github.com/BioSTEAMDevelopmentGroup/thermosteam"
@@ -360,7 +363,7 @@ repo = "https://github.com/aiidateam/aiida-common-workflows"
 [[project]]
 name = "cp2k-input-tools"
 requirement = "cp2k-input-tools[test,tests,testing]==0.9.1"
-test_deps = ["pytest", "pygls"]
+test_deps = ["pytest", "pygls<2"]
 repo = "https://github.com/cp2k/cp2k-input-tools"
 ref = "v0.9.1"
 test_path = "tests"
@@ -591,7 +594,7 @@ qt = true
 [[project]]
 name = "InstrumentKit"
 requirement = "instrumentkit[test,tests,testing]==1.0.0b2"
-test_deps = ["pytest", "hypothesis"]
+test_deps = ["pytest", "pytest-mock", "pyvisa-sim", "hypothesis"]
 repo = "https://github.com/instrumentkit/InstrumentKit"
 ref = "v1.0.0b2"
 test_path = "tests"
@@ -731,11 +734,12 @@ test_path = "tests"
 
 [[project]]
 name = "PsyNeuLink"
+# Only the scheduler tests, where pint is used; the full suite exceeds the 60-minute job limit.
 requirement = "psyneulink==0.21.0.0"
 test_deps = ["pytest", "pytest-benchmark", "pytest-cov", "pytest-helpers-namespace", "pytest-pycodestyle", "pytest-ruff", "pytest-xdist"]
 repo = "https://github.com/PrincetonUniversity/PsyNeuLink"
 ref = "v0.21.0.0"
-test_path = "tests"
+test_path = "tests/scheduling"
 
 [[project]]
 name = "dit"
@@ -767,11 +771,12 @@ test_path = "tests"
 
 [[project]]
 name = "ChatterBot"
+# Only the pint-backed unit conversion tests; the rest need spaCy models and databases.
 requirement = "ChatterBot[test]==1.2.15"
 test_deps = ["pytest", "pymongo", "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"]
 repo = "https://github.com/gunthercox/ChatterBot"
 ref = "1.2.15"
-test_path = "tests"
+test_path = "tests/logic/test_unit_conversion.py"
 
 [[project]]
 name = "stravalib"
