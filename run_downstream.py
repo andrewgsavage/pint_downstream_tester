@@ -29,6 +29,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 WORK = ROOT / ".downstream"
 PINT_REPO = "https://github.com/hgrecco/pint"
+# Per-test limit, so one hung test fails instead of the whole job timing out.
+TEST_TIMEOUT = "600"
 # System libraries Qt needs to start under xvfb on Ubuntu.
 QT_APT = [
     "xvfb", "libegl1", "libgl1", "libxkbcommon-x11-0", "libxcb-icccm4", "libxcb-image0",
@@ -110,7 +112,8 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
 
     # Pint is optional for some projects, so always ask for it; the resolver picks
     # the newest release the project allows.
-    run([*install, project["requirement"], *project.get("test_deps", []), "pint"])
+    run([*install, project["requirement"], *project.get("test_deps", []), "pint",
+         "pytest-timeout"])
     if pint == "master":
         run([*install, "--upgrade", f"pint @ git+{PINT_REPO}@{pint_ref}"])
     run([str(py), "-c", "import pint; print('pint', pint.__version__)"])
@@ -129,7 +132,7 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     shm = Path("/dev/shm")
     junit = (shm if shm.is_dir() else work) / f"downstream-{name}-junit.xml"
     junit.unlink(missing_ok=True)
-    cmd += [*project.get("pytest_args", []), f"--junitxml={junit}"]
+    cmd += [*project.get("pytest_args", []), f"--junitxml={junit}", f"--timeout={TEST_TIMEOUT}"]
     print("+ pytest", " ".join(cmd), flush=True)
     # -P keeps the checkout off sys.path, so tests import the installed release
     # rather than the source tree (which lacks compiled extensions).

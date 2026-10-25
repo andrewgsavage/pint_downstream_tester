@@ -9,6 +9,7 @@ release. Exits 1 if any project has such tests.
 """
 
 import json
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -60,6 +61,9 @@ for p in projects:
     rows.append(f"| {name} | `{p['requirement']}` | {cell(rel)} | {cell(mas)} | {status} |")
 
 print("# Pint downstream results\n")
+if os.environ.get("PINT_MASTER_SHA"):
+    sha = os.environ["PINT_MASTER_SHA"]
+    print(f"Pint master: [`{sha[:9]}`](https://github.com/hgrecco/pint/commit/{sha})\n")
 if regressions:
     print(f"**{len(regressions)} project(s) have failures with Pint master that pass with released Pint.**\n")
     for name, new in regressions.items():

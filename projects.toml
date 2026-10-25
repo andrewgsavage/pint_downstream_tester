@@ -288,9 +288,10 @@ test_path = "tests"
 [[project]]
 name = "thermosteam"
 # A dependency still requires the deprecated `sklearn` placeholder package.
+# Its conftest uses the pytest_ignore_collect `path` argument pytest 9 removed.
 env = { SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL = "True" }
 requirement = "thermosteam==0.22.5"
-test_deps = ["pytest"]
+test_deps = ["pytest<9"]
 repo = "https://github.com/BioSTEAMDevelopmentGroup/thermosteam"
 ref = "0.22.5"
 test_path = "tests"
