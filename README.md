@@ -5,9 +5,11 @@
 Runs the test suites of projects that depend on [Pint](https://github.com/hgrecco/pint)
 against Pint `master`, to catch backwards-incompatible changes before they are released.
 
-Each project is tested twice: against Pint `master` and against the latest Pint release.
-A failure only on `master` points at a Pint regression; a failure on both is a problem
-in the downstream project (or its pinned version) itself.
+Each project is tested twice: against Pint `master` and against the latest Pint release
+the project allows. Many pinned releases have some tests that fail regardless of Pint
+(newer numpy or pandas, network access, missing solvers), so results are compared test by
+test: only tests that fail with `master` but pass with the release point at a Pint
+regression.
 
 ## Projects tested
 
@@ -28,10 +30,16 @@ python run_downstream.py --pint-ref my-branch # a Pint branch, tag or SHA
 ```
 
 Projects marked `qt = true` need a display; locally they run without `xvfb`.
+Projects with a `python` key need uv, which creates an environment for that version.
 
 ## CI
 
 GitHub Actions runs on pushes, pull requests, weekly, and on demand
 (*Actions → Downstream tests → Run workflow*, optionally with a Pint ref and a regex
-of project names to test). Each job has a 60-minute limit. The run summary has a table
-of results and lists any project that passes with released Pint but fails with master.
+of project names to test). The Pint ref is resolved to one commit at the start of the run,
+so every job tests the same Pint.
+
+Test jobs only fail when a project can't be installed. The `summary` job compares each
+project's failing tests under both Pint versions, lists the tests that fail only with
+`master`, and fails the run if there are any. Each test has a 10-minute limit and each
+job a 60-minute limit.
