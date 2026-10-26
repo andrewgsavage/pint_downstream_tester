@@ -113,7 +113,7 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     # Pint is optional for some projects, so always ask for it; the resolver picks
     # the newest release the project allows.
     run([*install, project["requirement"], *project.get("test_deps", []), "pint",
-         "pytest-timeout"])
+         "pytest-timeout", "pytest-rerunfailures"])
     if pint == "master":
         run([*install, "--upgrade", f"pint @ git+{PINT_REPO}@{pint_ref}"])
     run([str(py), "-c", "import pint; print('pint', pint.__version__)"])
@@ -132,7 +132,9 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     shm = Path("/dev/shm")
     junit = (shm if shm.is_dir() else work) / f"downstream-{name}-junit.xml"
     junit.unlink(missing_ok=True)
-    cmd += [*project.get("pytest_args", []), f"--junitxml={junit}", f"--timeout={TEST_TIMEOUT}"]
+    # One rerun keeps network blips from looking like regressions; a real one fails twice.
+    cmd += [*project.get("pytest_args", []), f"--junitxml={junit}", f"--timeout={TEST_TIMEOUT}",
+            "--reruns=1", "--reruns-delay=5"]
     print("+ pytest", " ".join(cmd), flush=True)
     # -P keeps the checkout off sys.path, so tests import the installed release
     # rather than the source tree (which lacks compiled extensions).

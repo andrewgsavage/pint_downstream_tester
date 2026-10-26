@@ -752,7 +752,7 @@ repo = "https://github.com/dit/dit"
 ref = "v2.3"
 test_path = "tests/utils"
 # Its config forces pytest-xdist, whose workers collected no tests here.
-pytest_args = ["tests/test_log_bases.py", "-n", "0"]
+pytest_args = ["-n", "0"]
 
 [[project]]
 name = "PyUncertainNumber"

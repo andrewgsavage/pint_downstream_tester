@@ -41,5 +41,6 @@ so every job tests the same Pint.
 
 Test jobs only fail when a project can't be installed. The `summary` job compares each
 project's failing tests under both Pint versions, lists the tests that fail only with
-`master`, and fails the run if there are any. Each test has a 10-minute limit and each
-job a 60-minute limit.
+`master`, and fails the run if there are any. Failed tests are rerun once, so network
+blips don't show up as regressions. Each test has a 10-minute limit and each job a
+60-minute limit.
