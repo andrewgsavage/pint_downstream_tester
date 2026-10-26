@@ -11,6 +11,9 @@ on:
       pint_ref:
         description: Pint git ref (branch, tag or SHA) to test
         default: master
+      filter:
+        description: Regex of project names to test (empty tests all)
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,18 +24,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       projects: ${{ steps.list.outputs.projects }}
+      pint_sha: ${{ steps.pint.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # Resolve the Pint ref once, so every job in the run tests the same commit
+      # even if Pint master moves while the run is in progress.
+      - id: pint
+        env:
+          PINT_REF: ${{ inputs.pint_ref || 'master' }}
+        run: |
+          sha=$(git ls-remote https://github.com/hgrecco/pint "$PINT_REF" | head -1 | cut -f1)
+          echo "sha=${sha:-$PINT_REF}" >> "$GITHUB_OUTPUT"
       - id: list
-        run: echo "projects=$(python run_downstream.py --list-json)" >> "$GITHUB_OUTPUT"
+        env:
+          FILTER: ${{ inputs.filter }}
+        run: echo "projects=$(python run_downstream.py --list-json --filter "$FILTER")" >> "$GITHUB_OUTPUT"
 
   test:
     needs: list
     name: ${{ matrix.project }} / pint ${{ matrix.pint }}
     runs-on: ubuntu-latest
+    # Stops a hung test suite well before GitHub's 6-hour job limit.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -48,4 +64,32 @@ jobs:
       - run: >
           python run_downstream.py "${{ matrix.project }}"
           --pint "${{ matrix.pint }}"
-          --pint-ref "${{ inputs.pint_ref || 'master' }}"
+          --pint-ref "${{ needs.list.outputs.pint_sha }}"
+          --results-dir results
+          --report-only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.project }}-${{ matrix.pint }}
+          path: results/
+          if-no-files-found: ignore
+
+  summary:
+    needs: [list, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+          merge-multiple: true
+      # Fails the run when tests fail with Pint master but pass with the release.
+      - run: python summarize.py results | tee -a "$GITHUB_STEP_SUMMARY"
+        shell: bash
+        env:
+          PINT_MASTER_SHA: ${{ needs.list.outputs.pint_sha }}
