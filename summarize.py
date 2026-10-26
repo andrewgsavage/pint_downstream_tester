@@ -15,6 +15,12 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+
+
+def base(test_id):
+    """Test ID without its parameters: some include timestamps that differ per run."""
+    return test_id.split("[", 1)[0]
+
 MAX_LISTED = 20
 
 results = {}
@@ -49,7 +55,9 @@ for p in projects:
         continue
     status = ""
     if rel and mas and "error" not in (rel["outcome"], mas["outcome"]):
-        new = sorted(set(mas.get("failed", [])) - set(rel.get("failed", [])))
+        # New means no variant of the test failed with released Pint.
+        rel_failed = {base(t) for t in rel.get("failed", [])}
+        new = sorted(t for t in mas.get("failed", []) if base(t) not in rel_failed)
         if new or (mas["outcome"] == "fail" and rel["outcome"] == "pass"):
             regressions[name] = new
             status = f"❌ {len(new) or 'some'} new"

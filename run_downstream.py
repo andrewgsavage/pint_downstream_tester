@@ -134,7 +134,7 @@ def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str
     junit.unlink(missing_ok=True)
     # One rerun keeps network blips from looking like regressions; a real one fails twice.
     cmd += [*project.get("pytest_args", []), f"--junitxml={junit}", f"--timeout={TEST_TIMEOUT}",
-            "--reruns=1", "--reruns-delay=5"]
+            "--reruns=1"]
     print("+ pytest", " ".join(cmd), flush=True)
     # -P keeps the checkout off sys.path, so tests import the installed release
     # rather than the source tree (which lacks compiled extensions).
