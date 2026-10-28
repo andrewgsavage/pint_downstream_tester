@@ -34,7 +34,8 @@ jobs:
       # even if Pint master moves while the run is in progress.
       - id: pint
         env:
-          PINT_REF: ${{ inputs.pint_ref || 'master' }}
+          # Testing hgrecco/pint#2533 instead of master.
+          PINT_REF: ${{ inputs.pint_ref || 'refs/pull/2533/head' }}
         run: |
           sha=$(git ls-remote https://github.com/hgrecco/pint "$PINT_REF" | head -1 | cut -f1)
           echo "sha=${sha:-$PINT_REF}" >> "$GITHUB_OUTPUT"
@@ -93,3 +94,4 @@ jobs:
         shell: bash
         env:
           PINT_MASTER_SHA: ${{ needs.list.outputs.pint_sha }}
+          PINT_LABEL: hgrecco/pint#2533
