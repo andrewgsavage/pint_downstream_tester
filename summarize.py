@@ -69,9 +69,13 @@ for p in projects:
     rows.append(f"| {name} | `{p['requirement']}` | {cell(rel)} | {cell(mas)} | {status} |")
 
 print("# Pint downstream results\n")
+if os.environ.get("PINT_PR"):
+    pr = os.environ["PINT_PR"]
+    print(f"Testing Pint PR [#{pr}](https://github.com/hgrecco/pint/pull/{pr}) "
+          "in place of master.\n")
 if os.environ.get("PINT_MASTER_SHA"):
     sha = os.environ["PINT_MASTER_SHA"]
-    print(f"Pint master: [`{sha[:9]}`](https://github.com/hgrecco/pint/commit/{sha})\n")
+    print(f"Pint commit: [`{sha[:9]}`](https://github.com/hgrecco/pint/commit/{sha})\n")
 if regressions:
     print(f"**{len(regressions)} project(s) have failures with Pint master that pass with released Pint.**\n")
     for name, new in regressions.items():

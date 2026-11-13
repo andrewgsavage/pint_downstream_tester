@@ -27,6 +27,7 @@ python run_downstream.py                      # every project, Pint master
 python run_downstream.py pint-xarray          # one project
 python run_downstream.py --pint release       # baseline against released Pint
 python run_downstream.py --pint-ref my-branch # a Pint branch, tag or SHA
+python run_downstream.py --pint-pr 2555       # the head of a Pint pull request
 ```
 
 Projects marked `qt = true` need a display; locally they run without `xvfb`.
@@ -38,6 +39,15 @@ GitHub Actions runs on pushes, pull requests, weekly, and on demand
 (*Actions → Downstream tests → Run workflow*, optionally with a Pint ref and a regex
 of project names to test). The Pint ref is resolved to one commit at the start of the run,
 so every job tests the same Pint.
+
+To check a [Pint pull request](https://github.com/hgrecco/pint/pulls) for downstream
+breakage before it is merged, give its number as the `pint_pr` input:
+
+```bash
+gh workflow run downstream.yml -R andrewgsavage/pint_downstream_tester -f pint_pr=2555
+```
+
+The PR's head commit then takes the place of `master` in the comparison.
 
 Test jobs only fail when a project can't be installed. The `summary` job compares each
 project's failing tests under both Pint versions, lists the tests that fail only with

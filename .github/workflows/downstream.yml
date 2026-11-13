@@ -1,4 +1,5 @@
 name: Downstream tests
+run-name: "${{ inputs.pint_pr && format('Downstream tests for Pint PR #{0}', inputs.pint_pr) || '' }}"
 
 on:
   push:
@@ -11,12 +12,16 @@ on:
       pint_ref:
         description: Pint git ref (branch, tag or SHA) to test
         default: master
+      pint_pr:
+        description: Pint pull request number to test (overrides the ref)
+        default: ""
       filter:
         description: Regex of project names to test (empty tests all)
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Runs for different Pint PRs don't cancel each other.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.pint_pr }}
   cancel-in-progress: true
 
 jobs:
@@ -35,8 +40,14 @@ jobs:
       - id: pint
         env:
           PINT_REF: ${{ inputs.pint_ref || 'master' }}
+          PINT_PR: ${{ inputs.pint_pr }}
         run: |
-          sha=$(git ls-remote https://github.com/hgrecco/pint "$PINT_REF" | head -1 | cut -f1)
+          if [ -n "$PINT_PR" ]; then
+            sha=$(git ls-remote https://github.com/hgrecco/pint "refs/pull/$PINT_PR/head" | cut -f1)
+            [ -n "$sha" ] || { echo "::error::Pint PR #$PINT_PR not found"; exit 1; }
+          else
+            sha=$(git ls-remote https://github.com/hgrecco/pint "$PINT_REF" | head -1 | cut -f1)
+          fi
           echo "sha=${sha:-$PINT_REF}" >> "$GITHUB_OUTPUT"
       - id: list
         env:
@@ -93,3 +104,4 @@ jobs:
         shell: bash
         env:
           PINT_MASTER_SHA: ${{ needs.list.outputs.pint_sha }}
+          PINT_PR: ${{ inputs.pint_pr }}

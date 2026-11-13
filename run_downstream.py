@@ -5,6 +5,7 @@ Usage:
     python run_downstream.py pyEQL                 # one project
     python run_downstream.py --pint release        # baseline: released Pint from PyPI
     python run_downstream.py --pint-ref some-branch
+    python run_downstream.py --pint-pr 2555        # head of a Pint pull request
     python run_downstream.py --list-json           # project names, for the CI matrix
     python run_downstream.py --list-json --filter 'pint-'  # only names matching a regex
 
@@ -95,6 +96,15 @@ def failed_tests(junit: Path) -> list[str]:
     return sorted(failed)
 
 
+def pr_head(number: int) -> str:
+    """The commit at the head of a Pint pull request."""
+    out = subprocess.run(["git", "ls-remote", PINT_REPO, f"refs/pull/{number}/head"],
+                         check=True, capture_output=True, text=True).stdout
+    if not out:
+        raise SystemExit(f"Pint pull request #{number} not found")
+    return out.split()[0]
+
+
 def test_project(project: dict, pint: str, pint_ref: str) -> tuple[int, list[str]]:
     """Install and test one project; return pytest's exit code and the failed tests."""
     name = project["name"]
@@ -155,6 +165,8 @@ def main() -> int:
                         help="test against Pint from git or the released PyPI version")
     parser.add_argument("--pint-ref", default="master",
                         help="git ref of Pint to test when --pint=master")
+    parser.add_argument("--pint-pr", type=int,
+                        help="test the head of this Pint pull request (overrides --pint-ref)")
     parser.add_argument("--list-json", action="store_true",
                         help="print project names as JSON and exit")
     parser.add_argument("--filter", default="",
@@ -170,6 +182,10 @@ def main() -> int:
         print(json.dumps([n for n, p in projects.items()
                           if not p.get("skip") and re.search(args.filter, n)]))
         return 0
+
+    if args.pint_pr:
+        args.pint_ref = pr_head(args.pint_pr)
+        print(f"Pint PR #{args.pint_pr} head: {args.pint_ref}")
 
     unknown = set(args.names) - set(projects)
     if unknown:
