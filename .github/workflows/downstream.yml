@@ -1,5 +1,5 @@
 name: Downstream tests
-run-name: ${{ inputs.pint_pr && format('Downstream tests for Pint PR #{0}', inputs.pint_pr) || '' }}
+run-name: "${{ inputs.pint_pr && format('Downstream tests for Pint PR #{0}', inputs.pint_pr) || '' }}"
 
 on:
   push:
